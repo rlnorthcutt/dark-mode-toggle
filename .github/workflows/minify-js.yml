@@ -1,0 +1,38 @@
+name: Build minified JS
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'dark-mode-toggle.js'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  minify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Minify with terser
+        run: |
+          mkdir -p dist
+          npx terser dark-mode-toggle.js \
+            -o dist/dark-mode-toggle.min.js \
+            -c -m --ecma 2019 --comments /^!/
+
+      - name: Commit minified file
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "build: minify dark-mode-toggle.js → dist/dark-mode-toggle.min.js"
+          file_pattern: dist/dark-mode-toggle.min.js
