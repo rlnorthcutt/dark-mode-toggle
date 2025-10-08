@@ -1,6 +1,6 @@
 // <dark-mode-toggle theme="auto|light|dark">  (default: auto)
 // Adds/removes data-theme="dark" on <html> and persists user choice.
-// Lightweight, accessible, and syncs across tabs.
+// Lightweight, accessible, and syncs across tabs. 
 
 (() => {
   const TPL = document.createElement('template');
