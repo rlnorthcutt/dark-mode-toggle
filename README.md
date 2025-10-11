@@ -1,31 +1,33 @@
 # 🌗 Dark Mode Toggle Web Component
 
 A **lightweight**, **self-contained**, and **accessible** web component for toggling dark mode on your website.
-It respects the user’s system preference (`prefers-color-scheme`), persists choices in `localStorage`, and updates instantly across tabs.
+It supports both `data-theme` **and** `.dark` class strategies, respects the user’s system preference (`prefers-color-scheme`), persists choices in `localStorage`, and updates instantly across tabs — even within the same page.
 
 ---
 
 ## 🚀 Features
 
-* ⚡ **Zero dependencies** – native custom element, under 2KB minified.
+* ⚡ **Zero dependencies** – native Custom Element, ~2KB minified.
 * 🌓 **Automatic theme detection** (`light`, `dark`, or `auto` mode).
-* 💾 **Persistent theme** using `localStorage`.
-* 🔄 **Syncs across tabs** and OS theme changes.
-* 🎨 **Fully customizable** via CSS variables or slots.
-* ♿ **Accessible** with proper ARIA roles and keyboard support.
-* 🔧 **Framework-agnostic** – works in plain HTML, React, Vue, Svelte, etc.
+* 💾 **Persistent user preference** using `localStorage` (optional).
+* 🔄 **Syncs everywhere** – across tabs, same tab, and OS changes.
+* 🎯 **Flexible strategies** – toggle `data-theme="dark"` or `.dark` class.
+* 🧩 **Scoped control** – target any root element (`<html>`, `#app`, etc.).
+* 🎨 **Fully customizable** with CSS variables or slotted icons.
+* ♿ **Accessible** – `role="switch"`, `aria-checked`, keyboard support.
+* 🌐 **Framework-agnostic** – works in plain HTML, React, Vue, Svelte, etc.
 
 ---
 
 ## 📦 Installation
 
-### Option 1: Direct script include
+### Option 1: Direct include
 
 ```html
 <script type="module" src="dark-mode-toggle.js"></script>
 ```
 
-### Option 2: NPM (optional future support)
+### Option 2: NPM (optional)
 
 ```bash
 npm install @yourname/dark-mode-toggle
@@ -42,51 +44,82 @@ import 'dark-mode-toggle';
 ## 💡 Usage
 
 ```html
-<!-- Include the script -->
+<!-- Include the component -->
 <script type="module" src="dark-mode-toggle.js"></script>
 
 <!-- Add the toggle to your page -->
 <dark-mode-toggle theme="auto"></dark-mode-toggle>
 ```
 
-Add this small inline script to your `<head>` to prevent the “flash of wrong theme” before the component initializes:
+The component automatically:
+
+* Checks your OS theme,
+* Applies stored user preference,
+* Updates `<html data-theme="dark">` by default.
+
+### 🧠 Tailwind users
+
+If you’re using Tailwind with `darkMode: 'class'`, just switch strategy:
+
+```html
+<dark-mode-toggle strategy="class" theme="auto"></dark-mode-toggle>
+```
+
+---
+
+## 🪄 Prevent the “flash of wrong theme”
+
+Add this **inline script** in your `<head>` before loading CSS:
 
 ```html
 <script>
-  try {
-    let t = localStorage.getItem('theme');
-    if (!t && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
-    if (t) document.documentElement.setAttribute('data-theme', 'dark');
-  } catch(e) {}
+/*! Dark mode prepaint */
+(() => {
+  const KEY = 'dm:theme';
+  const root = document.documentElement;
+  const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  let mode;
+  try { mode = localStorage.getItem(KEY); } catch {}
+  if (!mode) mode = (root.getAttribute('data-theme')==='dark'||root.classList.contains('dark'))?'dark':null;
+  if (!mode) mode = prefersDark ? 'dark' : 'light';
+  root.style.colorScheme = mode;
+  if (mode === 'dark') root.setAttribute('data-theme','dark');
+})();
 </script>
 ```
+
+This prevents a white flash before JS runs by setting the correct `data-theme` or `.dark` class early.
 
 ---
 
 ## ⚙️ Attributes
 
-| Attribute | Values                  | Default | Description                                                    |
-| --------- | ----------------------- | ------- | -------------------------------------------------------------- |
-| `theme`   | `auto`, `light`, `dark` | `auto`  | Determines the current mode. `auto` follows system preference. |
+| Attribute    | Values                  | Default     | Description                                                         |
+| ------------ | ----------------------- | ----------- | ------------------------------------------------------------------- |
+| `theme`      | `auto`, `light`, `dark` | `auto`      | Sets the current mode. `auto` follows stored value → OS preference. |
+| `strategy`   | `attr`, `class`         | `attr`      | Whether to use `data-theme="dark"` or a `.dark` class toggle.       |
+| `root`       | CSS selector            | `html`      | Root element to toggle (e.g. `#app` for scoped dark mode).          |
+| `dark-class` | string                  | `dark`      | Class to add/remove when `strategy="class"`.                        |
+| `persist`    | `off`                   | *(enabled)* | Disable persistence with `persist="off"`.                           |
 
 ---
 
 ## 🎨 CSS Custom Properties
 
-You can style every aspect of the toggle with CSS variables:
+You can customize the look with CSS variables:
 
-| Variable                    | Description                   | Default   |
-| --------------------------- | ----------------------------- | --------- |
-| `--track-width`             | Width of the toggle track     | `60px`    |
-| `--track-height`            | Height of the toggle track    | `30px`    |
-| `--track-bg-light`          | Background color (light mode) | `#E9E9EA` |
-| `--track-bg-dark`           | Background color (dark mode)  | `#4D4D52` |
-| `--thumb-bg`                | Thumb color (light mode)      | `white`   |
-| `--thumb-bg-dark`           | Thumb color (dark mode)       | `#6E6E73` |
-| `--icon-sun-color`          | Sun icon color (light mode)   | `black`   |
-| `--icon-moon-color`         | Moon icon color (light mode)  | `#8E8E93` |
-| `--icon-sun-color-inactive` | Sun icon color (dark mode)    | `#8E8E93` |
-| `--icon-moon-color-active`  | Moon icon color (dark mode)   | `white`   |
+| Variable                    | Description         | Default   |
+| --------------------------- | ------------------- | --------- |
+| `--track-width`             | Width of toggle     | `60px`    |
+| `--track-height`            | Height of toggle    | `30px`    |
+| `--track-bg-light`          | Track color (light) | `#E9E9EA` |
+| `--track-bg-dark`           | Track color (dark)  | `#4D4D52` |
+| `--thumb-bg`                | Thumb color (light) | `white`   |
+| `--thumb-bg-dark`           | Thumb color (dark)  | `#6E6E73` |
+| `--icon-sun-color`          | Sun icon (light)    | `black`   |
+| `--icon-moon-color`         | Moon icon (light)   | `#8E8E93` |
+| `--icon-sun-color-inactive` | Sun icon (dark)     | `#8E8E93` |
+| `--icon-moon-color-active`  | Moon icon (dark)    | `white`   |
 
 Example:
 
@@ -104,7 +137,7 @@ dark-mode-toggle {
 
 ## 🧩 Slots (Custom Icons)
 
-You can replace the default sun/moon icons:
+Replace the default sun/moon icons with your own:
 
 ```html
 <dark-mode-toggle>
@@ -117,44 +150,80 @@ You can replace the default sun/moon icons:
 
 ## 🧠 Events
 
-The component emits a `themechange` event whenever the theme updates:
+The toggle dispatches two event types for easy integration.
+
+**1. Element-level**
 
 ```js
 document.querySelector('dark-mode-toggle')
-  .addEventListener('themechange', e => {
-    console.log('Theme changed to:', e.detail.mode);
+  .addEventListener('change', e => {
+    console.log('Toggled theme:', e.detail.mode);
   });
 ```
+
+**2. Global (window-level)**
+
+```js
+window.addEventListener('themechange', e => {
+  console.log('Theme changed globally to:', e.detail.mode);
+});
+```
+
+Works across:
+
+* Tabs (`localStorage` sync)
+* Same-page components (`BroadcastChannel` + custom event)
+* External mutations (if your app toggles classes or attributes directly)
 
 ---
 
 ## ♿ Accessibility
 
-* Keyboard accessible (`Tab`, `Space`, `Enter`).
-* Uses `aria-pressed` and `aria-label`.
-* Compatible with `prefers-reduced-motion`.
+* Fully keyboard accessible (`Tab`, `Space`, `Enter`).
+* Uses `role="switch"` and `aria-checked`.
+* Automatically respects `prefers-reduced-motion`.
+* Focus ring is visible and theme-aware.
 
 ---
 
 ## 🧰 Integration Examples
 
-**In a framework:**
-
-### React
+**React**
 
 ```jsx
 useEffect(() => import('dark-mode-toggle'), []);
-return <dark-mode-toggle />;
+return <dark-mode-toggle strategy="class" theme="auto" />;
 ```
 
-### Svelte
+**Svelte**
 
 ```svelte
 <script>
   import 'dark-mode-toggle';
 </script>
 
-<dark-mode-toggle />
+<dark-mode-toggle theme="auto" />
+```
+
+**Scoped dark mode (custom root):**
+
+```html
+<div id="app">
+  <p>Inside app container</p>
+</div>
+
+<dark-mode-toggle strategy="class" root="#app" dark-class="dark-mode"></dark-mode-toggle>
+```
+
+---
+
+## 🧩 Multiple Toggles Stay in Sync
+
+Place toggles anywhere (e.g. header/footer) — all stay synchronized automatically.
+
+```html
+<header><dark-mode-toggle></dark-mode-toggle></header>
+<footer><dark-mode-toggle></dark-mode-toggle></footer>
 ```
 
 ---
@@ -174,8 +243,15 @@ Then open `index.html` in your browser.
 
 ---
 
+## 🧱 Build Output
+
+* `dist/dark-mode-toggle.js` — full build
+* `dist/dark-mode-toggle.min.js` — minified (auto-generated via workflow)
+* `dark-mode-toggle.iife.min.js` — global script for `<script src=…>` usage
+
+---
+
 ## 📄 License
 
 MIT License © Ron Northcutt
 Feel free to fork, remix, and use commercially with attribution.
-
