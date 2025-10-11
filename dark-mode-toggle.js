@@ -1,4 +1,3 @@
-<script>
 /*!
  * Dark Mode Toggle Web Element
  * Version: 1.0.0
@@ -6,17 +5,38 @@
  * License: MIT (https://opensource.org/licenses/MIT)
  */
 
-/** Usage:
- *  <dark-mode-toggle theme="auto|light|dark" strategy="attr|class" root="#app" dark-class="dark" persist="off"></dark-mode-toggle>
- *  - Default toggles html[data-theme="dark"] ("attr" strategy). Use strategy="class" for Tailwind-style .dark class.
- *  - Persists user choice to localStorage (key: "dm:theme") unless persist="off".
- *  - Respects OS preference and existing page state; syncs across tabs and same page.
+/* * Overview:
+ * - Dependency-free Custom Element that toggles dark mode using either:
+ *   (A) html[data-theme="dark"]  (strategy="attr", default), or
+ *   (B) html.dark                (strategy="class", Tailwind style)
+ * - Honors persisted user choice, existing page state (SSR/early script), and OS preference.
+ * - Syncs across tabs (storage) and within the same page (BroadcastChannel + CustomEvent).
+ * - Accessible switch semantics (role="switch", aria-checked).
+ *
+ * Usage:
+ *   <dark-mode-toggle
+ *     theme="auto|light|dark"   (default: auto)
+ *     strategy="attr|class"     (default: attr)
+ *     root="#app"               (default: html)
+ *     dark-class="dark"         (default: dark)
+ *     persist="off"             (omit to enable persistence)
+ *   ></dark-mode-toggle>
+ *
+ * Notes:
+ * - localStorage key: "dm:theme" ('light'|'dark')
+ * - Window event:   themechange  (detail: { mode })
+ * - Element event:  change       (detail: { mode })
+ * - To avoid FOUC, consider a tiny pre-paint snippet in <head> that sets initial color-scheme.
  */
 
 (() => {
   'use strict';
 
-  /* ---------------- Icons (default slotted content; override via <svg slot="sun|moon">) ---------------- */
+  /* ================================================================================================
+   * Icon defaults (slottable). Consumers may override via:
+   *   <svg slot="sun">...</svg>   and/or   <svg slot="moon">...</svg>
+   * Both SVGs inherit currentColor from CSS for easy theming.
+   * ============================================================================================== */
   const SUN_ICON = `
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M18.1 5.1c0 .3-.1.6-.3.9l-1.4 1.4-.9-.8 2.2-2.2c.3.1.4.4.4.7zm-.5 5.3h3.2c0 .3-.1.6-.4.9s-.5.4-.8.4h-2v-1.3zm-6.2-5V2.2c.3 0 .6.1.9.4s.4.5.4.8v2h-1.3zm6.4 11.7c-.3 0-.6-.1-.8-.3l-1.4-1.4.8-.8 2.2 2.2c-.2.2-.5.3-.8.3zM6.2 4.9c.3 0 .6.1.8.3l1.4 1.4-.8.9-2.2-2.3c.2-.2.5-.3.8-.3zm5.2 11.7h1.2v3.2c-.3 0-.6-.1-.9-.4s-.4-.5-.4-.8l.1-2zm-7-6.2h2v1.2H3.2c0-.3.1-.6.4-.9s.5-.3.8-.3zM6.2 16l1.4-1.4.8.8-2.2 2.2c-.2-.2-.3-.5-.3-.8s.1-.6.3-.8z"/>
@@ -29,7 +49,11 @@
     </svg>
   `;
 
-  /* ---------------- Template & Styles (single source; adoptedStyleSheets for perf) ---------------- */
+  /* ================================================================================================
+   * Template & Styles
+   * - Single adoptedStyleSheet instance for perf; shadow encapsulation avoids CSS bleed.
+   * - CSS variables + ::part targets allow external theming without piercing the shadow.
+   * ============================================================================================== */
   const TPL = document.createElement('template');
   TPL.innerHTML = `
     <button part="button" class="track" type="button" role="switch" aria-checked="false" aria-label="Toggle dark mode">
@@ -61,59 +85,84 @@
   `;
   const sheet = new CSSStyleSheet(); sheet.replaceSync(CSS);
 
-  /* ---------------- Constants / helpers ---------------- */
-  const KEY = 'dm:theme';                             // localStorage key
-  const CH_NAME = KEY;                                // BroadcastChannel name
+  /* ================================================================================================
+   * Constants / helpers
+   * ============================================================================================== */
+  /** localStorage key used to persist user choice ('light'|'dark'). */
+  const KEY = 'dm:theme';
+  /** BroadcastChannel name (same as KEY) for same-tab component sync. */
+  const CH_NAME = KEY;
+  /** Media query mirror; used to react to OS theme changes in auto mode. */
   const MQ = matchMedia('(prefers-color-scheme: dark)');
+  /** Returns whether the OS currently prefers dark. */
   const isDarkOS = () => MQ.matches;
-  const getRoot = (sel) => (sel && sel !== 'html') ? (document.querySelector(sel) || document.documentElement) : document.documentElement;
+  /**
+   * Resolves the root element being toggled. Defaults to <html>.
+   * If a custom selector fails to resolve, falls back to <html>.
+   */
+  const getRoot = (sel) => (sel && sel !== 'html')
+    ? (document.querySelector(sel) || document.documentElement)
+    : document.documentElement;
 
-  // Cross-context channel (same-tab sync). Optional in older browsers.
+  // Optional same-tab BroadcastChannel (older browsers may lack support).
   let bc; try { bc = new BroadcastChannel(CH_NAME); } catch {}
 
-  /* ---------------- Custom Element ---------------- */
+  /* ================================================================================================
+   * <dark-mode-toggle> definition
+   * ============================================================================================== */
+
+  /**
+   * DarkModeToggle
+   * Lightweight, framework-agnostic theme switch with:
+   * - dual strategy (attr/class),
+   * - multi-source resolution (persisted → existing root → OS),
+   * - cross-context sync (storage/BroadcastChannel),
+   * - a11y switch semantics.
+   */
   class DarkModeToggle extends HTMLElement {
-    // Observed attributes form the public API (minifier-safe surface)
+    /** Attributes observed -> mirrors of the public API. */
     static get observedAttributes() { return ['theme','strategy','root','dark-class','persist']; }
 
     constructor(){
       super();
-      // Shadow DOM for encapsulated template/styles; delegatesFocus for nicer keyboard UX
+      // Shadow DOM + adoptedStyleSheets for encapsulated, fast styling
       const root = this.attachShadow({ mode:'open', delegatesFocus:true });
       root.adoptedStyleSheets = [sheet];
       root.appendChild(TPL.content.cloneNode(true));
 
-      // Cache references / pre-bind handlers to avoid re-allocations
+      // Cached references and pre-bound handlers (avoid re-allocations)
       this._btn = root.querySelector('button');
       this._mo = new MutationObserver(() => this._reflectFromRoot());
       this._onClick = this._onClick.bind(this);
       this._onKey = this._onKey.bind(this);
       this._onStorage = this._onStorage.bind(this);
-      this._onMQ = () => this._apply();
+      this._onMQ = () => this._apply(); // react to OS flips when theme="auto"
       this._onBC = (e) => { if (e?.data?.type === 'themechange') this._applyFromExternal(e.data.mode); };
     }
 
-    /* ---- Lifecycle ---- */
+    /* -------------------------------- Lifecycle -------------------------------- */
+
     connectedCallback(){
-      // Attribute defaults (kept on element so they’re observable and serializable)
+      // Attribute defaults live on the element for serializability and author CSS hooks
       if (!this.hasAttribute('theme')) this.setAttribute('theme','auto');
-      if (!this.hasAttribute('strategy')) this.setAttribute('strategy','attr'); // 'attr'|'class'
+      if (!this.hasAttribute('strategy')) this.setAttribute('strategy','attr'); // 'attr' | 'class'
       if (!this.hasAttribute('dark-class')) this.setAttribute('dark-class','dark');
 
-      // Event wiring
+      // Wire events
       this._btn.addEventListener('click', this._onClick);
       this._btn.addEventListener('keydown', this._onKey);
       window.addEventListener('storage', this._onStorage);
       MQ.addEventListener?.('change', this._onMQ);
       bc?.addEventListener?.('message', this._onBC);
 
-      // Initial resolve prefers: stored → existing root state → OS
+      // Initial state prefers: persisted → existing root → OS
       this._initFromRootOrStorage();
       this._apply();
       this._observeRoot(true);
     }
 
     disconnectedCallback(){
+      // Cleanup listeners and observers
       this._btn.removeEventListener('click', this._onClick);
       this._btn.removeEventListener('keydown', this._onKey);
       window.removeEventListener('storage', this._onStorage);
@@ -124,38 +173,59 @@
 
     attributeChangedCallback(){ this._apply(); }
 
-    /* ---- Public API (properties mirror attributes) ---- */
+    /* ---------------------------- Public API (props) --------------------------- */
+
+    /** 'auto'|'light'|'dark' – auto defers to persisted/existing/OS. */
     get theme(){ return (this.getAttribute('theme') || 'auto').toLowerCase(); }
     set theme(v){ this.setAttribute('theme', v); }
 
+    /** 'attr' (data-theme) | 'class' (.dark) */
     get strategy(){ return (this.getAttribute('strategy') || 'attr').toLowerCase(); }
+    /** CSS selector for the root to toggle; defaults to 'html'. */
     get rootSelector(){ return this.getAttribute('root') || 'html'; }
+    /** Class used in class strategy; defaults to 'dark'. */
     get darkClass(){ return this.getAttribute('dark-class') || 'dark'; }
+    /** Persistence toggle; persist="off" disables localStorage writes. */
     get persist(){ return this.getAttribute('persist') !== 'off'; }
 
-    /* ---- Event handlers ---- */
+    /* -------------------------------- Handlers -------------------------------- */
+
+    /** Click toggles between 'light' and 'dark' (user intent overrides auto). */
     _onClick(){
       const next = this._current() === 'dark' ? 'light' : 'dark';
-      this.theme = next; // user intent overrides auto
+      this.theme = next;
       if (this.persist) { try { localStorage.setItem(KEY, next); } catch {} }
       this._broadcast(next);
       this._apply();
     }
-    _onKey(e){ if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); this._onClick(); } }
-    _onStorage(e){ if (e.key === KEY) this.theme = e.newValue ?? 'auto'; }
 
-    /* ---- Resolve effective mode ---- */
+    /** Keyboard activation: Space/Enter mimic click. */
+    _onKey(e){
+      if (e.key === ' ' || e.key === 'Enter'){ e.preventDefault(); this._onClick(); }
+    }
+
+    /** Cross-tab storage sync: reflect changes from other tabs/windows. */
+    _onStorage(e){
+      if (e.key === KEY) this.theme = e.newValue ?? 'auto';
+    }
+
+    /* ---------------------------- Core state logic ---------------------------- */
+
+    /**
+     * Resolve the effective mode:
+     * 1) Explicit attribute (light/dark) → 2) persisted choice → 3) existing root → 4) OS
+     */
     _current(){
       const attr = this.theme;
       if (attr === 'light' || attr === 'dark') return attr;
 
-      // Prefer stored choice if present
+      // 2) persisted choice
       try {
         const stored = localStorage.getItem(KEY);
         if (stored === 'light' || stored === 'dark') return stored;
       } catch {}
 
-      // Respect pre-existing page state (SSR/early script)
+      // 3) existing root state (SSR or pre-paint)
       const root = getRoot(this.rootSelector);
       if (this.strategy === 'class') {
         if (root.classList.contains(this.darkClass)) return 'dark';
@@ -163,42 +233,51 @@
         return 'dark';
       }
 
-      // Fallback to OS
+      // 4) OS preference
       return isDarkOS() ? 'dark' : 'light';
     }
 
-    /* ---- Apply effective mode to DOM (single write path) ---- */
+    /**
+     * Apply effective mode:
+     * - Updates component state + a11y, then flips the chosen root via attr/class.
+     * - Ensures UA widgets render correctly by setting color-scheme on <html>.
+     * - Emits 'change' at element level for local subscribers.
+     */
     _apply(){
       const mode = this._current();
 
-      // Reflect internal state for component styling + a11y
+      // Internal reflection for component styling and screen readers
       this.toggleAttribute('_state', false);
       this.setAttribute('_state', mode);
       this._btn.setAttribute('aria-checked', String(mode === 'dark'));
 
-      // Flip root class/attr depending on strategy
+      // Flip the root according to strategy
       const root = getRoot(this.rootSelector);
       if (this.strategy === 'class') {
         root.classList.toggle(this.darkClass, mode === 'dark');
+        // Avoid having both strategies active on <html>
         if (root === document.documentElement) document.documentElement.removeAttribute('data-theme');
       } else {
         if (mode === 'dark') root.setAttribute('data-theme','dark'); else root.removeAttribute('data-theme');
         root.classList.remove(this.darkClass);
       }
 
-      // Hint UA widgets (form controls) for correct rendering
+      // Hint UA (forms, scrollbars) at the active palette
       if (root === document.documentElement) document.documentElement.style.colorScheme = mode;
 
-      // Element-level change event for local listeners
+      // Element-level event for app code colocated with the component
       this.dispatchEvent(new CustomEvent('change', { detail:{ mode } }));
     }
 
-    /* ---- Cross-context sync ---- */
+    /* ------------------------------ Cross-context ----------------------------- */
+
+    /** Broadcast current mode within the same tab + dispatch a global event. */
     _broadcast(mode){
-      // Same-tab + other tabs
       try { bc?.postMessage({ type:'themechange', mode }); } catch {}
       window.dispatchEvent(new CustomEvent('themechange', { detail:{ mode } }));
     }
+
+    /** Apply an external mode update (BroadcastChannel) and persist if enabled. */
     _applyFromExternal(mode){
       if (mode === 'light' || mode === 'dark') {
         this.theme = mode;
@@ -207,28 +286,41 @@
       this._apply();
     }
 
-    /* ---- Respect existing state on load; optionally persist ---- */
+    /* -------------------------------- Bootstrap -------------------------------- */
+
+    /**
+     * At connect time, if the root is already dark (via SSR/prepaint),
+     * use that as the initial persisted value (when persistence is enabled).
+     */
     _initFromRootOrStorage(){
       const root = getRoot(this.rootSelector);
       let found = null;
       if (this.strategy === 'class') {
         if (root.classList.contains(this.darkClass)) found = 'dark';
-      } else {
-        if (root.getAttribute('data-theme') === 'dark') found = 'dark';
+      } else if (root.getAttribute('data-theme') === 'dark') {
+        found = 'dark';
       }
       if (found && this.persist) { try { localStorage.setItem(KEY, found); } catch {} }
     }
 
-    /* ---- Observe external toggles on the root, reflect when theme="auto" ---- */
+    /**
+     * Observe the root for external flips (e.g., app code toggling theme).
+     * Only mirrored into the component when theme="auto" so user overrides win.
+     */
     _observeRoot(enable){
       const root = getRoot(this.rootSelector);
       if (!root) return;
       if (enable) {
-        this._mo.observe(root, { attributes:true, attributeFilter: this.strategy === 'class' ? ['class'] : ['data-theme'] });
+        this._mo.observe(root, {
+          attributes:true,
+          attributeFilter: this.strategy === 'class' ? ['class'] : ['data-theme']
+        });
       } else {
         this._mo.disconnect();
       }
     }
+
+    /** Mirror external root changes into component state when theme="auto". */
     _reflectFromRoot(){
       if (this.theme !== 'auto') return;
       const root = getRoot(this.rootSelector);
@@ -238,11 +330,12 @@
 
       this.setAttribute('_state', externalDark ? 'dark' : 'light');
       this._btn.setAttribute('aria-checked', String(externalDark));
-      if (root === document.documentElement) document.documentElement.style.colorScheme = externalDark ? 'dark' : 'light';
+      if (root === document.documentElement) {
+        document.documentElement.style.colorScheme = externalDark ? 'dark' : 'light';
+      }
     }
   }
 
-  /* ---------------- Register element ---------------- */
+  // Register the element once (idempotent guards left out for size).
   customElements.define('dark-mode-toggle', DarkModeToggle);
 })();
-</script>
