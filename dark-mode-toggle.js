@@ -80,6 +80,7 @@
     .icon{display:inline-flex;align-items:center;justify-content:center;
       width:calc(var(--track-height,30px) - 8px);height:calc(var(--track-height,30px) - 8px);pointer-events:none;z-index:1}
     .icon svg{width:100%;height:100%;fill:currentColor;transition:color .25s ease,fill .25s ease}
+    .icon.sun svg { transform: translateY(1px); transform-origin: center;}
     .sun{color:var(--icon-sun-color,#000)}
     .moon{color:var(--icon-moon-color,#8E8E93)}
     :host([_state="dark"]) .track{background:var(--track-bg-dark,#4D4D52)}
