@@ -70,7 +70,7 @@
 
   const CSS = `
     :host{display:inline-block;vertical-align:middle;color-scheme:light dark}
-    .track{cursor:pointer;display:flex;align-items:center;justify-content:space-around;padding:0 4px;
+    .track{cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:0 4px;
       width:var(--track-width,60px);height:var(--track-height,30px);background:var(--track-bg-light,#E9E9EA);
       border-radius:30px;position:relative;border:0;outline:none;transition:background-color .25s ease}
     .track:focus-visible{outline:2px solid color-mix(in oklab,CanvasText 30%,transparent);outline-offset:2px}
