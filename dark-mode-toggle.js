@@ -1,6 +1,6 @@
 /*!
  * Dark Mode Toggle Web Element
- * Version: 1.0.1
+ * Version: 1.1.0
  * URL: https://github.com/rlnorthcutt/dark-mode-toggle
  * License: MIT (https://opensource.org/licenses/MIT)
  */
@@ -14,11 +14,9 @@
  * - Syncs across tabs (localStorage) and within the same page (BroadcastChannel + CustomEvent).
  * - Accessible switch semantics (role="switch", aria-checked).
  *
- * IMPORTANT (v1.0.1+):
- * - In "attr" strategy we now set BOTH states explicitly:
- *     data-theme="dark"  OR  data-theme="light"
- *   This avoids accidental auto-darking when OS prefers dark.
- * - We also set html.style.colorScheme = "dark" | "light" so UA widgets match the theme.
+ * IMPORTANT:
+ * - In "attr" strategy we set BOTH states explicitly: data-theme="dark" OR data-theme="light"
+ * - We set .style.colorScheme = "dark" | "light" on the chosen root (and <html>) so UA widgets match.
  *
  * Usage:
  *   <dark-mode-toggle
@@ -26,7 +24,9 @@
  *     strategy="attr|class"     (default: attr)
  *     root="#app"               (default: html)
  *     dark-class="dark"         (default: dark)
+ *     label="Toggle theme"      (optional aria-label; default: "Toggle dark mode")
  *     persist="off"             (omit to enable persistence)
+ *     disabled                  (optional; disables interactions)
  *   ></dark-mode-toggle>
  *
  * Notes:
@@ -44,7 +44,7 @@
    * ============================================================================================== */
   const SUN_ICON = `
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M18.1 5.1c0 .3-.1.6-.3.9l-1.4 1.4-.9-.8 2.2-2.2c.3.1.4.4.4.7zm-.5 5.3h3.2c0 .3-.1.6-.4.9s-.5.4-.8.4h-2v-1.3zm-6.2-5V2.2c.3 0 .6.1.9.4s.4.5.4.8v2h-1.3zm6.4 11.7c-.3 0-.6-.1-.8-.3l-1.4-1.4.8-.8 2.2 2.2c-.2.2-.5.3-.8.3zM6.2 4.9c.3 0 .6.1.8.3l1.4 1.4-.8.9-2.2-2.3c.2-.2.5-.3.8-.3zm5.2 11.7h1.2v3.2c-.3 0 -.6-.1-.9-.4s-.4-.5-.4-.8l.1-2zm-7-6.2h2v1.2H3.2c0-.3.1-.6.4-.9s.5-.3.8-.3zM6.2 16l1.4-1.4.8.8-2.2 2.2c-.2-.2-.3-.5-.3-.8s.1-.6.3-.8z"/>
+      <path d="M18.1 5.1c0 .3-.1.6-.3.9l-1.4 1.4-.9-.8 2.2-2.2c.3.1.4.4.4.7zm-.5 5.3h3.2c0 .3-.1.6-.4.9s-.5.4-.8.4h-2v-1.3zm-6.2-5V2.2c.3 0 .6.1.9.4s.4.5.4.8v2h-1.3zm6.4 11.7c-.3 0-.6-.1-.8-.3l-1.4-1.4.8-.8 2.2 2.2c-.2.2-.5.3-.8.3zM6.2 4.9c.3 0 .6.1.8.3l1.4 1.4-.8.9-2.2-2.3c.2-.2.5-.3.8-.3zm5.2 11.7h1.2v3.2c-.3 0 -.6-.1-.9-.4s-.4-.5-.4-.8l.1-2zm-7-6.2h2v1.2H3.2c0-.3.1-.6.4-.9s.5-.3.8-.3z"/>
       <circle cx="12" cy="11" r="4"/>
     </svg>
   `;
@@ -74,19 +74,31 @@
       width:var(--track-width,60px);height:var(--track-height,30px);background:var(--track-bg-light,#E9E9EA);
       border-radius:30px;position:relative;border:0;outline:none;transition:background-color .25s ease}
     .track:focus-visible{outline:2px solid color-mix(in oklab,CanvasText 30%,transparent);outline-offset:2px}
-    .thumb{position:absolute;top:2px;left:2px;width:calc(var(--track-height,30px) - 4px);height:calc(var(--track-height,30px) - 4px);
+
+    /* Center the thumb vertically regardless of height */
+    .thumb{
+      position:absolute;top:50%;left:2px;
+      width:calc(var(--track-height,30px) - 4px);
+      height:calc(var(--track-height,30px) - 4px);
       background:var(--thumb-bg,#fff);border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.2);
-      transition:transform .25s cubic-bezier(.25,.46,.45,.94),background-color .25s ease}
+      transform:translateY(-50%);
+      transition:transform .25s cubic-bezier(.25,.46,.45,.94),background-color .25s ease
+    }
+
+    /* Icons: remove baseline quirks and ensure perfect centering */
     .icon{display:inline-flex;align-items:center;justify-content:center;
-      width:calc(var(--track-height,30px) - 8px);height:calc(var(--track-height,30px) - 8px);pointer-events:none;z-index:1}
-    .icon svg{width:100%;height:100%;fill:currentColor;transition:color .25s ease,fill .25s ease}
-    .icon.sun svg { transform: translateY(1px); transform-origin: center;}
+      width:calc(var(--track-height,30px) - 8px);height:calc(var(--track-height,30px) - 8px);
+      pointer-events:none;z-index:1;line-height:0}
+    .icon svg{display:block;width:100%;height:100%;fill:currentColor;transition:color .25s ease,fill .25s ease}
+
     .sun{color:var(--icon-sun-color,#000)}
     .moon{color:var(--icon-moon-color,#8E8E93)}
+
     :host([_state="dark"]) .track{background:var(--track-bg-dark,#4D4D52)}
-    :host([_state="dark"]) .thumb{transform:translateX(calc(var(--track-width,60px) - var(--track-height,30px)));background:var(--thumb-bg-dark,#888)}
+    :host([_state="dark"]) .thumb{transform:translate(calc(var(--track-width,60px) - var(--track-height,30px)), -50%);background:var(--thumb-bg-dark,#888)}
     :host([_state="dark"]) .sun{color:var(--icon-sun-color-inactive,#8E8E93)}
     :host([_state="dark"]) .moon{color:var(--icon-moon-color-active,#fff)}
+
     @media (prefers-reduced-motion:reduce){.thumb,.track,.icon svg{transition:none}}
   `;
 
@@ -97,19 +109,13 @@
   /* ================================================================================================
    * Constants & helpers
    * ============================================================================================== */
-  /** Storage key for user choice ('light'|'dark'). */
-  const KEY = 'dm:theme';
-  /** Channel for same-tab broadcast (sync multiple toggles). */
-  const CH_NAME = KEY;
-  /** Media query mirror for OS preference. */
-  const MQ = matchMedia('(prefers-color-scheme: dark)');
-  /** Returns true if OS currently prefers dark. */
-  const isDarkOS = () => MQ.matches;
-  /**
-   * Resolve the root that will receive the theme flag. Defaults to <html>.
-   * If the selector does not resolve, we fall back to <html>.
-   */
-  const getRoot = (sel) => (sel && sel!=='html') ? (document.querySelector(sel)||document.documentElement) : document.documentElement;
+  const KEY = 'dm:theme';                    // Storage key for user choice ('light'|'dark')
+  const CH_NAME = KEY;                       // Channel for same-tab broadcast (sync multiple toggles)
+  const MQ = matchMedia('(prefers-color-scheme: dark)'); // Media query mirror for OS preference
+  const isDarkOS = () => MQ.matches;         // Returns true if OS currently prefers dark
+
+  const getRoot = (sel) =>
+    (sel && sel!=='html') ? (document.querySelector(sel)||document.documentElement) : document.documentElement;
 
   // Optional BroadcastChannel (unsupported on some browsers)
   let bc; try{ bc=new BroadcastChannel(CH_NAME); }catch{}
@@ -118,18 +124,15 @@
    * <dark-mode-toggle> definition
    * ============================================================================================== */
   class DarkModeToggle extends HTMLElement{
-    /** Attributes observed → public API */
-    static get observedAttributes(){ return ['theme','strategy','root','dark-class','persist']; }
+    static get observedAttributes(){ return ['theme','strategy','root','dark-class','persist','disabled','label']; }
 
     constructor(){
       super();
-      // Shadow root + styles (constructable if available; otherwise <style>)
       const root=this.attachShadow({mode:'open',delegatesFocus:true});
       if(sheet && root.adoptedStyleSheets){ root.adoptedStyleSheets=[sheet]; }
       else{ const s=document.createElement('style'); s.textContent=CSS; root.appendChild(s); }
       root.appendChild(TPL.content.cloneNode(true));
 
-      // Cached refs + bound handlers
       this._btn=root.querySelector('button');
       this._mo=new MutationObserver(()=>this._reflectFromRoot());
       this._onClick=this._onClick.bind(this);
@@ -141,10 +144,13 @@
 
     /* -------------------------------- Lifecycle -------------------------------- */
     connectedCallback(){
-      // Default attributes for serializability and author CSS hooks
       if(!this.hasAttribute('theme')) this.setAttribute('theme','auto');
       if(!this.hasAttribute('strategy')) this.setAttribute('strategy','attr'); // 'attr' | 'class'
       if(!this.hasAttribute('dark-class')) this.setAttribute('dark-class','dark');
+
+      // Respect label/disabled on first connect
+      this._btn.setAttribute('aria-label', this.label);
+      this._syncDisabled();
 
       // Events
       this._btn.addEventListener('click',this._onClick);
@@ -168,24 +174,51 @@
       this._observeRoot(false);
     }
 
-    attributeChangedCallback(){ this._apply(); }
+    attributeChangedCallback(name, oldV, newV){
+      if (oldV === newV) return;
+
+      if (name === 'strategy' || name === 'root') {
+        // Rewire observer to the new root/attr
+        this._observeRoot(false);
+
+        // Clean up opposite flag if strategy changed
+        if (name === 'strategy') {
+          const root = getRoot(this.rootSelector);
+          if ((newV||'attr').toLowerCase() === 'class') root.removeAttribute('data-theme');
+          else root.classList.remove(this.darkClass);
+        }
+        this._observeRoot(true);
+      }
+
+      if (name === 'label') {
+        this._btn.setAttribute('aria-label', this.label);
+      }
+
+      if (name === 'disabled') {
+        this._syncDisabled();
+      }
+
+      // Re-apply state for any attribute change that may affect rendering
+      this._apply();
+    }
 
     /* ---------------------------- Public API (props) --------------------------- */
-    /** 'auto'|'light'|'dark' – auto defers to persisted/existing/OS. */
     get theme(){ return (this.getAttribute('theme')||'auto').toLowerCase(); }
     set theme(v){ this.setAttribute('theme',v); }
-    /** 'attr' (data-theme) | 'class' (.dark) */
+
     get strategy(){ return (this.getAttribute('strategy')||'attr').toLowerCase(); }
-    /** Selector of the root to toggle; defaults to 'html'. */
+
     get rootSelector(){ return this.getAttribute('root')||'html'; }
-    /** Class used in class strategy; defaults to 'dark'. */
+
     get darkClass(){ return this.getAttribute('dark-class')||'dark'; }
-    /** Persistence toggle; persist="off" disables localStorage writes. */
+
     get persist(){ return this.getAttribute('persist')!=='off'; }
 
+    get label(){ return this.getAttribute('label') || 'Toggle dark mode'; }
+
     /* -------------------------------- Handlers -------------------------------- */
-    /** Click toggles between 'light' and 'dark' (user intent overrides auto). */
     _onClick(){
+      if (this.hasAttribute('disabled')) return;
       const next=this._current()==='dark'?'light':'dark';
       this.theme=next;
       if(this.persist){ try{ localStorage.setItem(KEY,next); }catch{} }
@@ -193,10 +226,11 @@
       this._apply();
     }
 
-    /** Space/Enter keyboard activation. */
-    _onKey(e){ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); this._onClick(); } }
+    _onKey(e){
+      if (this.hasAttribute('disabled')) return;
+      if(e.key===' '||e.key==='Enter'){ e.preventDefault(); this._onClick(); }
+    }
 
-    /** Cross-tab storage sync (if another tab flips the theme). */
     _onStorage(e){
       if(e.key!==KEY) return;
       const v=e.newValue;
@@ -204,13 +238,6 @@
     }
 
     /* ---------------------------- Core state logic ---------------------------- */
-    /**
-     * Resolve effective mode:
-     * 1) element attribute (theme='light'|'dark')
-     * 2) persisted choice in localStorage
-     * 3) existing root state (SSR / prepaint)
-     * 4) OS preference via prefers-color-scheme
-     */
     _current(){
       const attr=this.theme;
       if(attr==='light'||attr==='dark') return attr;
@@ -235,13 +262,6 @@
       return isDarkOS()?'dark':'light';
     }
 
-    /**
-     * Apply mode:
-     * - Reflects in component state + a11y
-     * - Flips the chosen root via attr/class
-     * - Sets html.style.colorScheme for UA widgets
-     * - Emits a 'change' event on the element
-     */
     _apply(){
       const mode=this._current();
 
@@ -254,29 +274,28 @@
       const root=getRoot(this.rootSelector);
       if(this.strategy==='class'){
         root.classList.toggle(this.darkClass,mode==='dark');
-        // avoid mixed strategies on <html>
         if(root===document.documentElement) document.documentElement.removeAttribute('data-theme');
       }else{
-        // EXPLICIT both states to avoid accidental auto-dark
         root.setAttribute('data-theme',mode==='dark'?'dark':'light');
         root.classList.remove(this.darkClass);
       }
 
-      // UA hint (scrollbars/inputs)
-      if(root===document.documentElement) document.documentElement.style.colorScheme=mode;
+      // UA hint (scrollbars/inputs). Apply to chosen root and also <html> for global widgets.
+      try { root.style.colorScheme = mode; } catch {}
+      if (root !== document.documentElement) {
+        try { document.documentElement.style.colorScheme = mode; } catch {}
+      }
 
-      // Notify colocated app code
+      // Notify colocated app code (after DOM flip so listeners see final state)
       this.dispatchEvent(new CustomEvent('change',{detail:{mode}}));
     }
 
     /* ------------------------------ Cross-context ----------------------------- */
-    /** Broadcast within the page + global window event. */
     _broadcast(mode){
       try{ bc?.postMessage({type:'themechange',mode}); }catch{}
       window.dispatchEvent(new CustomEvent('themechange',{detail:{mode}}));
     }
 
-    /** Apply external mode from BroadcastChannel and persist if allowed. */
     _applyFromExternal(mode){
       if(mode==='light'||mode==='dark'){
         this.theme=mode;
@@ -286,11 +305,6 @@
     }
 
     /* -------------------------------- Bootstrap -------------------------------- */
-    /**
-     * On connect, infer initial theme from:
-     * - pre-existing root flag (SSR), else leave null
-     * When persistence is enabled, store the detected mode for future loads.
-     */
     _initFromRootOrStorage(){
       const root=getRoot(this.rootSelector);
       let found=null;
@@ -303,10 +317,6 @@
       if(found&&this.persist){ try{ localStorage.setItem(KEY,found); }catch{} }
     }
 
-    /**
-     * Observe the root for external flips (e.g., app code toggling theme).
-     * Only mirrored when theme="auto" so explicit user choices win.
-     */
     _observeRoot(enable){
       const root=getRoot(this.rootSelector); if(!root) return;
       if(enable){
@@ -316,7 +326,6 @@
       }
     }
 
-    /** Mirror external root changes into this component when theme="auto". */
     _reflectFromRoot(){
       if(this.theme!=='auto') return;
       const root=getRoot(this.rootSelector);
@@ -325,9 +334,16 @@
         : root.getAttribute('data-theme')==='dark';
       this.setAttribute('_state',externalDark?'dark':'light');
       this._btn.setAttribute('aria-checked',String(externalDark));
-      if(root===document.documentElement){
-        document.documentElement.style.colorScheme=externalDark?'dark':'light';
+      try { root.style.colorScheme = externalDark?'dark':'light'; } catch {}
+      if(root!==document.documentElement){
+        try { document.documentElement.style.colorScheme = externalDark?'dark':'light'; } catch {}
       }
+    }
+
+    _syncDisabled(){
+      const dis = this.hasAttribute('disabled');
+      this._btn.toggleAttribute('disabled', dis);
+      this._btn.setAttribute('aria-disabled', String(dis));
     }
   }
 
