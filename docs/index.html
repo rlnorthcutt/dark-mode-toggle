@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dark Mode Toggle — Demo</title>
+  <meta name="description" content="Lightweight, accessible Web Component for toggling dark mode (attr or class strategies) with persistence and sync." />
+  <meta name="color-scheme" content="light dark" />
+
+  <!-- PRE-PAINT: ensure correct theme before CSS paints -->
+  <script>
+  /*! Dark mode prepaint (match README) */
+  (() => {
+    const KEY = 'dm:theme';
+    const root = document.documentElement;
+    const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
+    let mode;
+    try { mode = localStorage.getItem(KEY); } catch {}
+    if (!mode) mode = (root.getAttribute('data-theme') === 'dark' || root.classList.contains('dark')) ? 'dark' : null;
+    if (!mode) mode = prefersDark ? 'dark' : 'light';
+    root.style.colorScheme = mode;
+    // Default strategy for this demo is data-attr
+    if (mode === 'dark') root.setAttribute('data-theme','dark'); else root.setAttribute('data-theme','light');
+  })();
+  </script>
+
+  <!-- Ivy.css (classless) — UPDATE PATH OR CDN AS NEEDED -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rlnorthcutt/ivy/dist/ivy.full.min.css" />
+
+  <!-- Minimal page polish (keeps Ivy classless spirit) -->
+  <style>
+    :root{
+      --demo-border: color-mix(in oklab, currentColor 12%, transparent);
+    }
+    main { max-width: 72rem; margin-inline: auto; }
+    header, footer { margin-block: 1.5rem; }
+    .box { border: 1px solid var(--demo-border); border-radius: .75rem; padding: 1rem; }
+    .grid { display: grid; gap: 1rem; grid-template-columns: minmax(0,1fr); }
+    @media (min-width: 48rem){ .grid-2 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    .pill { display:inline-flex; align-items:center; gap:.5ch; border:1px solid var(--demo-border); border-radius:999px; padding:.25rem .75rem; }
+    .muted { opacity:.7 }
+    .row { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; }
+    .icons svg { width: 20px; height: 20px; }
+    /* Demo-only accent for scoped area */
+    #scoped-app { border: 2px dashed var(--demo-border); border-radius: .75rem; padding: 1rem; }
+    /* Slight spacing for toggles inside headers */
+    h1 > dark-mode-toggle, h2 > dark-mode-toggle { margin-inline-start:.5rem; vertical-align:middle; }
+  </style>
+
+  <!-- Component script (module build) — UPDATE PATHS IF NEEDED -->
+  <script type="module" src="./dist/dark-mode-toggle.min.js"></script>
+  <!-- If you prefer the IIFE for older browsers, use:
+  <script src="./dark-mode-toggle.iife.min.js"></script>
+  -->
+
+</head>
+<body>
+  <header>
+    <p class="pill muted">Dark Mode Toggle • Demo</p>
+    <h1>
+      Dark Mode Toggle
+      <!-- A header toggle for convenience -->
+      <dark-mode-toggle id="header-toggle" theme="auto" label="Toggle site theme"></dark-mode-toggle>
+    </h1>
+    <p class="muted">Lightweight, dependency-free Web Component for toggling dark mode with persistence, sync, and two strategies: <code>data-theme</code> or <code>.dark</code>.</p>
+    <nav>
+      <ul>
+        <li><a href="#basic">Basic</a></li>
+        <li><a href="#tailwind">Class Strategy (Tailwind)</a></li>
+        <li><a href="#scoped">Scoped Root</a></li>
+        <li><a href="#icons">Custom Icons</a></li>
+        <li><a href="#disabled">Disabled State</a></li>
+        <li><a href="#events">Events</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <!-- STATUS BAR -->
+    <section class="box" aria-live="polite">
+      <div class="row">
+        <strong>Current theme:</strong>
+        <span id="live-mode">detecting…</span>
+        <span class="muted">(updates when toggled here, in another tab, or when OS preference changes)</span>
+      </div>
+    </section>
+
+    <!-- BASIC (attr strategy) -->
+    <section id="basic">
+      <h2>Basic Usage (attribute strategy)</h2>
+      <p>The default strategy toggles <code>&lt;html data-theme="dark|light"&gt;</code>. Try it:</p>
+      <div class="row">
+        <dark-mode-toggle id="demo-attr" theme="auto" label="Toggle theme (attr strategy)"></dark-mode-toggle>
+        <code>&lt;dark-mode-toggle theme="auto"&gt;&lt;/dark-mode-toggle&gt;</code>
+      </div>
+      <details>
+        <summary>Notes</summary>
+        <ul>
+          <li>Persists user choice in <code>localStorage</code> unless you set <code>persist="off"</code>.</li>
+          <li>Sets <code>color-scheme</code> on the chosen root and <code>&lt;html&gt;</code> for consistent native UI.</li>
+          <li>Honors <code>prefers-color-scheme</code> when in <code>theme="auto"</code> and no stored preference exists.</li>
+        </ul>
+      </details>
+    </section>
+
+    <hr/>
+
+    <!-- CLASS STRATEGY (Tailwind) -->
+    <section id="tailwind">
+      <h2>Class Strategy (Tailwind-style)</h2>
+      <p>For Tailwind projects using <code>darkMode: 'class'</code>, switch to <code>strategy="class"</code>:</p>
+      <div class="row">
+        <dark-mode-toggle id="demo-class" strategy="class" theme="auto" label="Toggle theme (class strategy)"></dark-mode-toggle>
+        <code>&lt;dark-mode-toggle strategy="class" theme="auto"&gt;&lt;/dark-mode-toggle&gt;</code>
+      </div>
+      <p class="muted">In this section, the toggle still affects the document root; you’ll typically define dark styles under the <code>.dark</code> class.</p>
+    </section>
+
+    <hr/>
+
+    <!-- SCOPED ROOT -->
+    <section id="scoped">
+      <h2>Scoped Dark Mode (custom root)</h2>
+      <p>Target any root element using <code>root="#scoped-app"</code>. The rest of the page remains unchanged.</p>
+
+      <div class="grid grid-2">
+        <div>
+          <h3>Controls</h3>
+          <div class="row">
+            <dark-mode-toggle id="demo-scoped" strategy="class" root="#scoped-app" dark-class="dark" theme="auto" label="Toggle scoped dark mode"></dark-mode-toggle>
+            <code>&lt;dark-mode-toggle strategy="class" root="#scoped-app" dark-class="dark" /&gt;</code>
+          </div>
+          <p class="muted">This toggle only flips the area on the right. Try switching both the site-wide and the scoped toggle.</p>
+        </div>
+
+        <div id="scoped-app">
+          <h3>Scoped App Area</h3>
+          <p>This box uses its own dark class (<code>.dark</code>) without affecting the rest of the page.</p>
+          <ul>
+            <li>Observe text/background contrast within this region.</li>
+            <li>Native UI (color-scheme) is also set on this subtree.</li>
+          </ul>
+          <p><em>Tip:</em> Replace <code>dark</code> with any class via <code>dark-class="your-class"</code>.</p>
+        </div>
+      </div>
+    </section>
+
+    <hr/>
+
+    <!-- CUSTOM ICONS -->
+    <section id="icons">
+      <h2>Custom Icons (slots)</h2>
+      <p>Provide your own icons using the <code>sun</code> and <code>moon</code> slots:</p>
+      <div class="row icons">
+        <dark-mode-toggle id="demo-slots" theme="auto" label="Toggle with custom icons">
+          <!-- Simple example icons -->
+          <svg slot="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5"/></svg>
+          <svg slot="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a9 9 0 1 0 8.66 6.5A7 7 0 0 1 12 2z"/></svg>
+        </dark-mode-toggle>
+        <code>&lt;dark-mode-toggle&gt;&lt;svg slot="sun"&gt;…&lt;/svg&gt;&lt;svg slot="moon"&gt;…&lt;/svg&gt;&lt;/dark-mode-toggle&gt;</code>
+      </div>
+      <p class="muted">The component centers and sizes the icons automatically. Customize colors with CSS variables.</p>
+    </section>
+
+    <hr/>
+
+    <!-- DISABLED -->
+    <section id="disabled">
+      <h2>Disabled State</h2>
+      <p>Use <code>disabled</code> to temporarily prevent interaction (still reflects external changes in <code>auto</code> mode).</p>
+      <div class="row">
+        <dark-mode-toggle id="demo-disabled" disabled label="Disabled toggle"></dark-mode-toggle>
+        <button id="enable-btn">Enable</button>
+        <code>&lt;dark-mode-toggle disabled&gt;&lt;/dark-mode-toggle&gt;</code>
+      </div>
+    </section>
+
+    <hr/>
+
+    <!-- EVENTS -->
+    <section id="events">
+      <h2>Events</h2>
+      <p>The component emits a <code>change</code> event (element) and <code>themechange</code> (window) with <code>{ detail: { mode } }</code>. Try toggling above and watch the log:</p>
+      <pre id="log" class="box" style="max-height:18rem; overflow:auto;" aria-live="polite"></pre>
+    </section>
+  </main>
+
+  <footer>
+    <p class="muted">
+      Built with <a href="https://github.com/rlnorthcutt/ivy">Ivy.css</a> •
+      <a href="https://github.com/rlnorthcutt/dark-mode-toggle">GitHub Repo</a> •
+      MIT © Ron Northcutt
+    </p>
+  </footer>
+
+  <!-- Demo wiring: status, events, enable button -->
+  <script>
+  const live = document.getElementById('live-mode');
+  const log = document.getElementById('log');
+  const enableBtn = document.getElementById('enable-btn');
+  const toggles = Array.from(document.querySelectorAll('dark-mode-toggle'));
+
+  function getMode(){
+    // Prefer explicit data-theme on <html>
+    const t = document.documentElement.getAttribute('data-theme');
+    if (t === 'dark' || t === 'light') return t;
+    return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+  }
+
+  function updateLive(){
+    const m = getMode();
+    live.textContent = m;
+  }
+
+  // Log helper
+  function appendLog(source, mode){
+    const line = `[${new Date().toLocaleTimeString()}] ${source}: ${mode}\n`;
+    log.textContent += line;
+    log.scrollTop = log.scrollHeight;
+  }
+
+  // Element-level events
+  toggles.forEach(t => {
+    t.addEventListener('change', e => {
+      appendLog('<dark-mode-toggle>', e.detail.mode);
+      updateLive();
+    });
+  });
+
+  // Global window event
+  window.addEventListener('themechange', e => {
+    appendLog('window', e.detail.mode);
+    updateLive();
+  });
+
+  // Enable the disabled demo toggle
+  enableBtn.addEventListener('click', () => {
+    const d = document.getElementById('demo-disabled');
+    d.removeAttribute('disabled');
+    appendLog('demo', 'disabled removed');
+  });
+
+  // Initial status
+  updateLive();
+  </script>
+
+  <noscript>
+    <div class="box">JavaScript is disabled; the dark mode toggle requires JS to operate.</div>
+  </noscript>
+</body>
+</html>
