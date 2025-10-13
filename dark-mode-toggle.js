@@ -84,7 +84,7 @@
     .sun{color:var(--icon-sun-color,#000)}
     .moon{color:var(--icon-moon-color,#8E8E93)}
     :host([_state="dark"]) .track{background:var(--track-bg-dark,#4D4D52)}
-    :host([_state="dark"]) .thumb{transform:translateX(calc(var(--track-width,60px) - var(--track-height,30px)));background:var(--thumb-bg-dark,#6E6E73)}
+    :host([_state="dark"]) .thumb{transform:translateX(calc(var(--track-width,60px) - var(--track-height,30px)));background:var(--thumb-bg-dark,#888)}
     :host([_state="dark"]) .sun{color:var(--icon-sun-color-inactive,#8E8E93)}
     :host([_state="dark"]) .moon{color:var(--icon-moon-color-active,#fff)}
     @media (prefers-reduced-motion:reduce){.thumb,.track,.icon svg{transition:none}}
