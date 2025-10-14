@@ -31,8 +31,15 @@ jobs:
             -o dist/dark-mode-toggle.min.js \
             -c -m --ecma 2019 --comments /^!/
 
-      - name: Commit minified file
+      - name: Copy to docs
+        run: |
+          mkdir -p docs
+          cp dist/dark-mode-toggle.min.js docs/dark-mode-toggle.min.js
+
+      - name: Commit minified files
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "build: minify dark-mode-toggle.js → dist/dark-mode-toggle.min.js"
-          file_pattern: dist/dark-mode-toggle.min.js
+          commit_message: "build: update dist/ & docs/ dark-mode-toggle.min.js"
+          file_pattern: |
+            dist/dark-mode-toggle.min.js
+            docs/dark-mode-toggle.min.js
