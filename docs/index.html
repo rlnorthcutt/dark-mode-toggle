@@ -6,65 +6,14 @@
   <title>Dark Mode Toggle — Demo</title>
   <meta name="description" content="Lightweight, accessible Web Component for toggling dark mode (attr or class strategies) with persistence and sync." />
   <meta name="color-scheme" content="light dark" />
-
-  <!-- PRE-PAINT: ensure correct theme before CSS paints -->
-  <script>
-  /*! Dark mode prepaint (match README) */
-  (() => {
-    const KEY = 'dm:theme';
-    const root = document.documentElement;
-    const prefersDark = matchMedia('(prefers-color-scheme: dark)').matches;
-    let mode;
-    try { mode = localStorage.getItem(KEY); } catch {}
-    if (!mode) mode = (root.getAttribute('data-theme') === 'dark' || root.classList.contains('dark')) ? 'dark' : null;
-    if (!mode) mode = prefersDark ? 'dark' : 'light';
-    root.style.colorScheme = mode;
-    // Default strategy for this demo is data-attr
-    if (mode === 'dark') root.setAttribute('data-theme','dark'); else root.setAttribute('data-theme','light');
-  })();
-  </script>
-
-  <!-- Ivy.css (classless) — UPDATE PATH OR CDN AS NEEDED -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rlnorthcutt/ivy/dist/ivy.full.min.css" />
-
-  <!-- Minimal page polish (keeps Ivy classless spirit) -->
-  <style>
-    :root{
-      --demo-border: color-mix(in oklab, currentColor 12%, transparent);
-    }
-    main { max-width: 72rem; margin-inline: auto; }
-    header, footer { margin-block: 1.5rem; }
-    .box { border: 1px solid var(--demo-border); border-radius: .75rem; padding: 1rem; }
-    .grid { display: grid; gap: 1rem; grid-template-columns: minmax(0,1fr); }
-    @media (min-width: 48rem){ .grid-2 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-    .pill { display:inline-flex; align-items:center; gap:.5ch; border:1px solid var(--demo-border); border-radius:999px; padding:.25rem .75rem; }
-    .muted { opacity:.7 }
-    .row { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; }
-    .icons svg { width: 20px; height: 20px; }
-    /* Demo-only accent for scoped area */
-    #scoped-app { border: 2px dashed var(--demo-border); border-radius: .75rem; padding: 1rem; }
-    /* Slight spacing for toggles inside headers */
-    h1 > dark-mode-toggle, h2 > dark-mode-toggle { margin-inline-start:.5rem; vertical-align:middle; }
-  </style>
-
-  <!-- Component script (module build) — UPDATE PATHS IF NEEDED -->
-  <script type="module" src="./dist/dark-mode-toggle.min.js"></script>
-  <!-- If you prefer the IIFE for older browsers, use:
-  <script src="./dark-mode-toggle.iife.min.js"></script>
-  -->
-
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rlnorthcutt/lattice/dist/lattice.full.min.css" />
 </head>
 <body>
-  <header>
-    <p class="pill muted">Dark Mode Toggle • Demo</p>
-    <h1>
-      Dark Mode Toggle
-      <!-- A header toggle for convenience -->
-      <dark-mode-toggle id="header-toggle" theme="auto" label="Toggle site theme"></dark-mode-toggle>
-    </h1>
-    <p class="muted">Lightweight, dependency-free Web Component for toggling dark mode with persistence, sync, and two strategies: <code>data-theme</code> or <code>.dark</code>.</p>
-    <nav>
-      <ul>
+    <!-- Site header -->
+  <header class="lattice" role="banner">
+    <nav class="container d-flex justify-between" aria-label="Primary">
+      <ul class="d-flex gap-2 m-0 p-0">
         <li><a href="#basic">Basic</a></li>
         <li><a href="#tailwind">Class Strategy (Tailwind)</a></li>
         <li><a href="#scoped">Scoped Root</a></li>
@@ -72,10 +21,21 @@
         <li><a href="#disabled">Disabled State</a></li>
         <li><a href="#events">Events</a></li>
       </ul>
+      </ul>
+      <dark-mode-toggle></dark-mode-toggle>
     </nav>
   </header>
 
-  <main>
+<main id="content">
+    <section class="container hero center px-5 py-4">
+      <p class="kicker">Dark Mode Toggle • Demo</p>
+      <h1 class="brand">Dark Mode Toggle</h1>
+      <p>Lightweight, dependency-free Web Component for toggling dark mode with persistence, sync, and two strategies: <code>data-theme</code> or <code>.dark</code>.</p>
+      <p>
+        <a role="button" data-variant="primary" href="#basic">Get started</a>
+        <a role="button" data-variant="outline" href="https://github.com/rlnorthcutt/dark-mode-toggle" target="_blank" rel="noopener">GitHub</a>
+      </p>
+    </section>
     <!-- STATUS BAR -->
     <section class="box" aria-live="polite">
       <div class="row">
