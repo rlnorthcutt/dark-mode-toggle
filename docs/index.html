@@ -8,6 +8,16 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rlnorthcutt/ivy/dist/ivy.full.min.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rlnorthcutt/lattice/dist/lattice.full.min.css" />
+  <style>
+    :root{
+      --demo-border: color-mix(in oklab, currentColor 12%, transparent);
+    }
+    /* Demo-only accent for scoped area */
+    #scoped-app { border: 2px dashed var(--demo-border); border-radius: .75rem; padding: 1rem; }
+    #scoped-app.dark {background:#777; border: solid #333;}
+    /* Slight spacing for toggles inside headers */
+    h1 > dark-mode-toggle, h2 > dark-mode-toggle { margin-inline-start:.5rem; vertical-align:middle; }
+  </style>
 </head>
 <body>
     <!-- Site header -->
