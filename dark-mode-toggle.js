@@ -1,6 +1,6 @@
 /*!
  * Dark Mode Toggle Web Element
- * Version: 1.1.0
+ * Version: 1.1.1
  * URL: https://github.com/rlnorthcutt/dark-mode-toggle
  * License: MIT (https://opensource.org/licenses/MIT)
  */
@@ -16,6 +16,7 @@
  *
  * IMPORTANT:
  * - In "attr" strategy we set BOTH states explicitly: data-theme="dark" OR data-theme="light"
+ * - In "class" strategy we now set EXACTLY ONE of the classes: .dark OR .light (replace, not toggle)
  * - We set .style.colorScheme = "dark" | "light" on the chosen root (and <html>) so UA widgets match.
  *
  * Usage:
@@ -24,6 +25,7 @@
  *     strategy="attr|class"     (default: attr)
  *     root="#app"               (default: html)
  *     dark-class="dark"         (default: dark)
+ *     light-class="light"       (default: light)
  *     label="Toggle theme"      (optional aria-label; default: "Toggle dark mode")
  *     persist="off"             (omit to enable persistence)
  *     disabled                  (optional; disables interactions)
@@ -124,7 +126,10 @@
    * <dark-mode-toggle> definition
    * ============================================================================================== */
   class DarkModeToggle extends HTMLElement{
-    static get observedAttributes(){ return ['theme','strategy','root','dark-class','persist','disabled','label']; }
+    static get observedAttributes(){
+      // Added 'light-class' so we can enforce mutual exclusivity between .dark and .light
+      return ['theme','strategy','root','dark-class','light-class','persist','disabled','label'];
+    }
 
     constructor(){
       super();
@@ -147,6 +152,7 @@
       if(!this.hasAttribute('theme')) this.setAttribute('theme','auto');
       if(!this.hasAttribute('strategy')) this.setAttribute('strategy','attr'); // 'attr' | 'class'
       if(!this.hasAttribute('dark-class')) this.setAttribute('dark-class','dark');
+      // light-class defaults via getter; no need to set attribute
 
       // Respect label/disabled on first connect
       this._btn.setAttribute('aria-label', this.label);
@@ -181,12 +187,17 @@
         // Rewire observer to the new root/attr
         this._observeRoot(false);
 
-        // Clean up opposite flag if strategy changed
-        if (name === 'strategy') {
-          const root = getRoot(this.rootSelector);
-          if ((newV||'attr').toLowerCase() === 'class') root.removeAttribute('data-theme');
-          else root.classList.remove(this.darkClass);
+        // Clean up opposite flag if strategy changed or root changed
+        const root = getRoot(this.rootSelector);
+        const isClass = (this.strategy || 'attr').toLowerCase() === 'class';
+        if (isClass) {
+          // Moving to class strategy: remove data-theme artifacts
+          root.removeAttribute('data-theme');
+        } else {
+          // Moving to attr strategy: remove theme classes (both)
+          root.classList.remove(this.darkClass, this.lightClass);
         }
+
         this._observeRoot(true);
       }
 
@@ -211,6 +222,8 @@
     get rootSelector(){ return this.getAttribute('root')||'html'; }
 
     get darkClass(){ return this.getAttribute('dark-class')||'dark'; }
+
+    get lightClass(){ return this.getAttribute('light-class')||'light'; }
 
     get persist(){ return this.getAttribute('persist')!=='off'; }
 
@@ -252,6 +265,7 @@
       const root=getRoot(this.rootSelector);
       if(this.strategy==='class'){
         if(root.classList.contains(this.darkClass)) return 'dark';
+        if(root.classList.contains(this.lightClass)) return 'light';
       }else{
         const t=root.getAttribute('data-theme');
         if(t==='dark') return 'dark';
@@ -273,11 +287,15 @@
       // Flip the root
       const root=getRoot(this.rootSelector);
       if(this.strategy==='class'){
-        root.classList.toggle(this.darkClass,mode==='dark');
+        // Replace classes to ensure mutual exclusivity
+        root.classList.remove(this.darkClass, this.lightClass);
+        root.classList.add(mode === 'dark' ? this.darkClass : this.lightClass);
+
         if(root===document.documentElement) document.documentElement.removeAttribute('data-theme');
       }else{
         root.setAttribute('data-theme',mode==='dark'?'dark':'light');
-        root.classList.remove(this.darkClass);
+        // Remove theme classes in attr strategy to avoid conflicts
+        root.classList.remove(this.darkClass, this.lightClass);
       }
 
       // UA hint (scrollbars/inputs). Apply to chosen root and also <html> for global widgets.
@@ -309,7 +327,9 @@
       const root=getRoot(this.rootSelector);
       let found=null;
       if(this.strategy==='class'){
-        found=root.classList.contains(this.darkClass)?'dark':'light';
+        if(root.classList.contains(this.darkClass)) found='dark';
+        else if(root.classList.contains(this.lightClass)) found='light';
+        else found=null;
       }else{
         const t=root.getAttribute('data-theme');
         found=(t==='dark'||t==='light')?t:null;
@@ -329,14 +349,16 @@
     _reflectFromRoot(){
       if(this.theme!=='auto') return;
       const root=getRoot(this.rootSelector);
-      const externalDark=this.strategy==='class'
-        ? root.classList.contains(this.darkClass)
+      const externalDark = this.strategy==='class'
+        ? (root.classList.contains(this.darkClass) ||
+           (!root.classList.contains(this.lightClass) && isDarkOS())) // sensible fallback
         : root.getAttribute('data-theme')==='dark';
-      this.setAttribute('_state',externalDark?'dark':'light');
-      this._btn.setAttribute('aria-checked',String(externalDark));
-      try { root.style.colorScheme = externalDark?'dark':'light'; } catch {}
+
+      this.setAttribute('_state', externalDark ? 'dark' : 'light');
+      this._btn.setAttribute('aria-checked', String(externalDark));
+      try { root.style.colorScheme = externalDark ? 'dark' : 'light'; } catch {}
       if(root!==document.documentElement){
-        try { document.documentElement.style.colorScheme = externalDark?'dark':'light'; } catch {}
+        try { document.documentElement.style.colorScheme = externalDark ? 'dark' : 'light'; } catch {}
       }
     }
 
